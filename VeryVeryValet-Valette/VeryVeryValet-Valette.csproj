@@ -1,0 +1,95 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net46</TargetFramework>
+        <Nullable>enable</Nullable>
+
+        <EnvFilePath>$(MSBuildProjectDirectory)\.env</EnvFilePath>
+        <EnvFileContent Condition="Exists('$(EnvFilePath)')">$([System.IO.File]::ReadAllText('$(EnvFilePath)'))</EnvFileContent>
+
+        <EnvPattern>(?m)^{0}\s*=\s*["']?([^"'\r\n]+)["']?</EnvPattern>
+
+        <STEAM_PATH>$([System.Text.RegularExpressions.Regex]::Match($(EnvFileContent), $([System.String]::Format($(EnvPattern), 'STEAM_PATH'))).Groups[1].Value)</STEAM_PATH>
+        <GAME_NAME>$([System.Text.RegularExpressions.Regex]::Match($(EnvFileContent), $([System.String]::Format($(EnvPattern), 'GAME_NAME'))).Groups[1].Value)</GAME_NAME>
+        <DATA_FOLDER>$([System.Text.RegularExpressions.Regex]::Match($(EnvFileContent), $([System.String]::Format($(EnvPattern), 'DATA_FOLDER'))).Groups[1].Value)</DATA_FOLDER>
+        <GAME_ASSEMBLY_NAME>$([System.Text.RegularExpressions.Regex]::Match($(EnvFileContent), $([System.String]::Format($(EnvPattern), 'ASSEMBLY_NAME'))).Groups[1].Value)</GAME_ASSEMBLY_NAME>
+        <PLUGIN_NAME>$([System.Text.RegularExpressions.Regex]::Match($(EnvFileContent), $([System.String]::Format($(EnvPattern), 'PLUGIN_NAME'))).Groups[1].Value)</PLUGIN_NAME>
+        <PLUGIN_GUID>$([System.Text.RegularExpressions.Regex]::Match($(EnvFileContent), $([System.String]::Format($(EnvPattern), 'PLUGIN_GUID'))).Groups[1].Value)</PLUGIN_GUID>
+        <NESTED_DIRECTORY>$([System.Text.RegularExpressions.Regex]::Match($(EnvFileContent), $([System.String]::Format($(EnvPattern), 'NESTED_DIRECTORY'))).Groups[1].Value)</NESTED_DIRECTORY>
+
+        <STEAM_PATH Condition="'$(STEAM_PATH)' == ''">C:\Program Files (x86)\Steam</STEAM_PATH>
+        <GAME_ASSEMBLY_NAME Condition="'$(GAME_ASSEMBLY_NAME)' == ''">Assembly-CSharp</GAME_ASSEMBLY_NAME>
+
+        <GAME_DIRECTORY>$(STEAM_PATH)\steamapps\common\$(GAME_NAME)</GAME_DIRECTORY>
+        <GAME_DIRECTORY Condition="'$(NESTED_DIRECTORY)' != ''">$(GAME_DIRECTORY)\$(NESTED_DIRECTORY)</GAME_DIRECTORY>
+        <GAME_MANAGED_PATH>$(GAME_DIRECTORY)\$(DATA_FOLDER)\Managed</GAME_MANAGED_PATH>
+        <LangVersion>8</LangVersion>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Reference Include="$(GAME_ASSEMBLY_NAME)">
+            <HintPath>$(GAME_MANAGED_PATH)\$(GAME_ASSEMBLY_NAME).dll</HintPath>
+        </Reference>
+        <Reference Include="UnityEngine">
+            <HintPath>$(GAME_MANAGED_PATH)\UnityEngine.dll</HintPath>
+        </Reference>
+        <Reference Include="UnityEngine.CoreModule">
+            <HintPath>$(GAME_MANAGED_PATH)\UnityEngine.CoreModule.dll</HintPath>
+        </Reference>
+        <Reference Include="UnityEngine.InputLegacyModule">
+            <HintPath>$(GAME_MANAGED_PATH)\UnityEngine.InputLegacyModule.dll</HintPath>
+        </Reference>
+        <Reference Include="Rewired_Core">
+            <HintPath>$(GAME_MANAGED_PATH)\Rewired_Core.dll</HintPath>
+        </Reference>
+        <Publicize Include="$(GAME_ASSEMBLY_NAME)"/>
+        <PackageReference Include="BepInEx.Core" Version="5.4.21"/>
+        <PackageReference Include="Krafs.Publicizer" Version="2.3.0">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+    </ItemGroup>
+
+    <Target Name="GenerateTemplatePluginInfo" BeforeTargets="BeforeCompile">
+        <WriteLinesToFile
+                File="$(IntermediateOutputPath)GeneratedTemplatePluginInfo.cs"
+                Lines="namespace TemplatePlugin
+{
+    internal static class TemplatePluginInfo
+    {
+        public const string PLUGIN_GUID = &quot;$(PLUGIN_GUID)&quot;%3B
+        public const string PLUGIN_NAME = &quot;$(PLUGIN_NAME)&quot;%3B
+        public const string GAME_NAME = &quot;$(GAME_NAME)&quot;%3B
+    }
+}
+                "
+                Overwrite="true"/>
+        <ItemGroup>
+            <Compile Include="$(IntermediateOutputPath)GeneratedTemplatePluginInfo.cs"/>
+        </ItemGroup>
+    </Target>
+
+    <ItemGroup><!--  <ExtraDependencies Include="" />  -->
+
+        <Folder Include="output\"/>
+    </ItemGroup>
+
+    <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+        <MakeDir Directories="$(GAME_DIRECTORY)\BepInEx\plugins\$(PLUGIN_NAME)"/>
+        <MakeDir Directories="$(ProjectDir)output"/>
+
+        <Copy
+                SourceFiles="$(TargetPath)"
+                DestinationFolder="$(GAME_DIRECTORY)\BepInEx\plugins\$(PLUGIN_NAME)"
+                OverwriteReadOnlyFiles="true"
+        />
+
+        <Copy
+                SourceFiles="@(ExtraDependencies)"
+                DestinationFolder="$(GAME_DIRECTORY)\BepInEx\plugins\$(PLUGIN_NAME)"
+                OverwriteReadOnlyFiles="true"
+        />
+
+        <Exec Command="powershell -Command &quot;Compress-Archive -Path '$(GAME_DIRECTORY)\BepInEx\plugins\$(PLUGIN_NAME)\*' -DestinationPath '$(ProjectDir)output\$(PLUGIN_NAME).zip' -Force&quot;"/>
+    </Target>
+</Project>
