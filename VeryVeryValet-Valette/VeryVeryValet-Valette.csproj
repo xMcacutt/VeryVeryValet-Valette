@@ -90,6 +90,22 @@
                 OverwriteReadOnlyFiles="true"
         />
 
-        <Exec Command="powershell -Command &quot;Compress-Archive -Path '$(GAME_DIRECTORY)\BepInEx\plugins\$(PLUGIN_NAME)\*' -DestinationPath '$(ProjectDir)output\$(PLUGIN_NAME).zip' -Force&quot;"/>
+        <ItemGroup>
+            <PluginFiles Include="$(GAME_DIRECTORY)\BepInEx\plugins\$(PLUGIN_NAME)\**\*"/>
+        </ItemGroup>
+
+        <Copy
+                SourceFiles="@(PluginFiles)"
+                DestinationFolder="$(ProjectDir)Package"
+                OverwriteReadOnlyFiles="true"
+        />
+
+        <Copy
+                SourceFiles="$(ProjectDir)..\README.md"
+                DestinationFolder="$(ProjectDir)Package"
+                OverwriteReadOnlyFiles="true"
+        />
+
+        <Exec Command="powershell -Command &quot;Compress-Archive -Path '$(ProjectDir)Package\*' -DestinationPath '$(ProjectDir)output\xMcacutt-$(PLUGIN_NAME)_TS.zip' -Force&quot;"/>
     </Target>
 </Project>
